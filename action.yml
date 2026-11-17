@@ -1,0 +1,13 @@
+name: action-run-lint
+description: Fail on any composite action run step that is not one call of a script file.
+author: Curlew Labs
+branding:
+  icon: file-text
+  color: gray-dark
+
+runs:
+  using: composite
+  steps:
+    - name: Judge every composite action run step
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/action/run.sh"'
