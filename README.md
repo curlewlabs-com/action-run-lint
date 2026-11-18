@@ -58,7 +58,7 @@ As a command, from inside a repository, with `git` and
 macOS runner images ship both):
 
 ```sh
-pip install git+https://github.com/curlewlabs-com/action-run-lint@v0.1.0
+pip install git+https://github.com/curlewlabs-com/action-run-lint@v0.1.1
 action-run-lint                  # every tracked action.yml and action.yaml
 action-run-lint save/action.yml  # just this one
 ```
