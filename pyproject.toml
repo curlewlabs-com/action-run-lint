@@ -7,8 +7,8 @@ name = "action-run-lint"
 version = "0.1.0"
 description = "Check that every run step of a composite GitHub Action calls one script file, so shellcheck reads all of its shell."
 readme = "README.md"
-license = "MIT"
-license-files = ["LICENSE"]
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
 authors = [{ name = "Curlew Labs" }]
 # The python3 the current Ubuntu hosted runner image ships; the package's
 # __init__ refuses anything older with a message.
