@@ -29,6 +29,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, TypeGuard
 
 SHELLS = ("bash", "sh")
 SEGMENT = r"[A-Za-z0-9._-]+"
@@ -88,23 +89,34 @@ def _judge_run(root: Path, action_dir: Path, step: Mapping[str, object]) -> list
     return problems
 
 
+# isinstance narrows a parsed YAML value to a container of Unknown, which strict
+# pyright rejects; these keep the isinstance test itself and only state what
+# the contents are.
+def _is_mapping(value: object) -> TypeGuard[Mapping[str, Any]]:
+    return isinstance(value, Mapping)
+
+
+def _is_list(value: object) -> TypeGuard[list[Any]]:
+    return isinstance(value, list)
+
+
 def judge(root: Path, path: str, action: object) -> list[Finding]:
-    if not isinstance(action, Mapping):
+    if not _is_mapping(action):
         return [Finding(path, "-", "the file is not an action mapping")]
     runs = action.get("runs")
-    if not isinstance(runs, Mapping):
+    if not _is_mapping(runs):
         return [Finding(path, "-", "the action has no runs mapping")]
     using = runs.get("using")
     # The runner reads `using` without regard to case.
     if not isinstance(using, str) or using.lower() != "composite":
         return []
     steps = runs.get("steps")
-    if not isinstance(steps, list):
+    if not _is_list(steps):
         return [Finding(path, "-", "the composite action has no steps list")]
     action_dir = (root / path).parent
     findings: list[Finding] = []
     for index, step in enumerate(steps):
-        if not isinstance(step, Mapping):
+        if not _is_mapping(step):
             findings.append(Finding(path, f"step {index + 1}", "not a mapping"))
             continue
         if "run" not in step:
