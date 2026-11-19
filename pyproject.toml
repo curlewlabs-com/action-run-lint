@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "action-run-lint"
-version = "0.1.2"
+version = "0.2.0"
 description = "Check that every run step of a composite GitHub Action calls one script file, so shellcheck reads all of its shell."
 readme = "README.md"
 license = "MIT OR Apache-2.0"
