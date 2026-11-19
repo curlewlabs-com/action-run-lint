@@ -9,7 +9,7 @@ A lint for composite GitHub Actions. It fails on any `run:` step in an
 action.yml: step 1 (Resolve slot): run is 15 lines; it must be one call of a script file
 ```
 
-The one form it accepts, for a step whose `shell:` is `bash` or `sh`:
+The form it accepts, for a step whose `shell:` is `bash` or `sh`:
 
 ```yaml
 - name: Resolve slot
@@ -17,6 +17,13 @@ The one form it accepts, for a step whose `shell:` is `bash` or `sh`:
   env:
     WINDOW: ${{ inputs.window }}
   run: '"$GITHUB_ACTION_PATH/lib/resolve-slot.sh"'
+```
+
+and the same call with `exec` in front, for a script that must see the step
+being cancelled:
+
+```yaml
+run: 'exec "$GITHUB_ACTION_PATH/lib/build.sh"'
 ```
 
 ## Why it exists
@@ -73,18 +80,42 @@ inherits, ahead of the standard library: leave out any entry naming the
 repository being judged, or a file there named like a module the lint imports
 runs in its place.
 
+## Which form to use
+
+When a run is cancelled, the runner signals one process: the shell it started
+for the step. It runs a `bash` step as
+`bash --noprofile --norc -e -o pipefail <file>` and sends that process SIGINT,
+then SIGTERM about 7.5 seconds later; see `src/Runner.Sdk/ProcessInvoker.cs` in
+[actions/runner](https://github.com/actions/runner). Bash runs the command in
+the file as a child and waits for it, so with the plain call the signal reaches
+bash, not your script. Observed with bash 3.2 and 5.3: bash holds the SIGINT
+until its child exits, dies on the SIGTERM, and the script keeps running,
+orphaned, having been sent nothing. With `exec`, the script replaces bash and
+is the process the runner signals.
+
+- Use `exec "$GITHUB_ACTION_PATH/<script>"` when the step's program has to see
+  the cancel: to stop a child process cleanly, flush a record, or release
+  something it holds. A program the script itself `exec`s becomes, in turn,
+  the process signalled.
+- Otherwise either form works: a script with nothing to do on a cancel is
+  not changed by which process receives it.
+
+`tests/test_cancel_signal.py` starts a step the way the runner does and signals
+it, for each form.
+
 ## What it checks
 
 For each step with `run:` in an action whose `runs.using` is `composite`, in any
 case:
 
 - `shell:` is `bash` or `sh`.
-- The body is exactly `"$GITHUB_ACTION_PATH/<path>"`, double-quoted, with
-  nothing around it but the newline a YAML block scalar ends with.
-  `${GITHUB_ACTION_PATH}` is accepted. Unquoted, a space in the action's path
-  would split the word; single-quoted, the variable would not expand; and any
-  other character - an argument, a carriage return, a trailing backslash - is
-  shell outside the file again.
+- The body is exactly `"$GITHUB_ACTION_PATH/<path>"` or
+  `exec "$GITHUB_ACTION_PATH/<path>"`, with one space after `exec`,
+  double-quoted, with nothing around it but the newline a YAML block scalar ends
+  with. `${GITHUB_ACTION_PATH}` is accepted. Unquoted, a space in the action's
+  path would split the word; single-quoted, the variable would not expand; and
+  any other character - an argument, a carriage return, a trailing backslash,
+  another word in front - is shell outside the file again.
 - No `${{ }}` anywhere in the body.
 - `<path>`, looked up from the action file's own directory as the shell will
   look it up, is an executable regular file inside the repository.

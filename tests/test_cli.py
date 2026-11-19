@@ -69,6 +69,27 @@ class TheCommand(unittest.TestCase):
             "it must be one call of a script file\n",
         )
 
+    def test_the_exec_form_passes_and_a_second_command_after_it_does_not(
+        self,
+    ) -> None:
+        self.script("lib/ok.sh")
+        self.action(
+            "action.yml",
+            "runs:\n  using: composite\n  steps:\n"
+            "    - name: Exec\n      shell: bash\n"
+            "      run: 'exec \"$GITHUB_ACTION_PATH/lib/ok.sh\"'\n"
+            "    - name: Then\n      shell: bash\n"
+            "      run: 'exec \"$GITHUB_ACTION_PATH/lib/ok.sh\"; echo done'\n",
+        )
+        status, out, _ = run([])
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            out,
+            "action.yml: step 2 (Then): run must be exactly"
+            ' "$GITHUB_ACTION_PATH/<script>" or exec "$GITHUB_ACTION_PATH/<script>",'
+            " double-quoted, with no arguments\n",
+        )
+
     def test_an_alias_is_judged_as_what_it_names(self) -> None:
         # A text scan would read `*body` as one line; GitHub reads its anchor.
         self.action(

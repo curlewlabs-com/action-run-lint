@@ -36,6 +36,77 @@ class Steps(unittest.TestCase):
             with self.subTest(run=run):
                 self.assertEqual(self.whats({"shell": "bash", "run": run}), [])
 
+    def test_the_exec_form_passes_in_each_spelling(self) -> None:
+        # With exec the script replaces the shell the runner signals on cancel,
+        # so it is the process that receives the signal (test_cancel_signal).
+        self.script("lib/run.sh")
+        for run in (
+            'exec "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'exec "${GITHUB_ACTION_PATH}/lib/run.sh"',
+            'exec "$GITHUB_ACTION_PATH/lib/run.sh"\n',
+        ):
+            with self.subTest(run=run):
+                self.assertEqual(self.whats({"shell": "bash", "run": run}), [])
+
+    def test_exec_takes_nothing_the_plain_call_does_not(self) -> None:
+        # Each is the exec form's near miss, and each is shell outside the file
+        # again: a second command, arguments or options, a path not under the
+        # action, a quoting the shell reads differently, another word in front.
+        self.script("lib/run.sh")
+        for run in (
+            'exec "$GITHUB_ACTION_PATH/lib/run.sh"; echo done',
+            'exec "$GITHUB_ACTION_PATH/lib/run.sh" && echo done',
+            'exec "$GITHUB_ACTION_PATH/lib/run.sh" "$X"',
+            'exec -a lint "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'exec "$HOME/lib/run.sh"',
+            "exec /bin/sh",
+            "exec $GITHUB_ACTION_PATH/lib/run.sh",
+            "exec '$GITHUB_ACTION_PATH/lib/run.sh'",
+            'exec  "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'exec\t"$GITHUB_ACTION_PATH/lib/run.sh"',
+            'exec"$GITHUB_ACTION_PATH/lib/run.sh"',
+            ' exec "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'exec "$GITHUB_ACTION_PATH/lib/run.sh"\r',
+            'EXEC "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'command "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'eval "$GITHUB_ACTION_PATH/lib/run.sh"',
+            '. "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'builtin exec "$GITHUB_ACTION_PATH/lib/run.sh"',
+            'exec exec "$GITHUB_ACTION_PATH/lib/run.sh"',
+        ):
+            with self.subTest(run=run):
+                self.assertEqual(len(self.whats({"shell": "sh", "run": run})), 1)
+        self.assertEqual(
+            self.whats(
+                {"shell": "sh", "run": 'exec "$GITHUB_ACTION_PATH/lib/run.sh"\necho'}
+            ),
+            ["run is 2 lines; it must be one call of a script file"],
+        )
+
+    def test_exec_is_held_to_the_same_script_checks(self) -> None:
+        self.script("lib/plain.sh", executable=False)
+        for rel, what in (
+            ("../../etc/passwd", "../../etc/passwd is outside the repository"),
+            ("lib/missing.sh", "lib/missing.sh is not a file"),
+            ("lib/plain.sh", "lib/plain.sh is not executable"),
+        ):
+            with self.subTest(rel=rel):
+                run = f'exec "$GITHUB_ACTION_PATH/{rel}"'
+                self.assertEqual(self.whats({"shell": "sh", "run": run}), [what])
+        self.assertIn(
+            "run holds a ${{ }} expression; pass the value through env:",
+            self.whats(
+                {
+                    "shell": "bash",
+                    "run": 'exec "$GITHUB_ACTION_PATH/lib/${{ inputs.which }}.sh"',
+                }
+            ),
+        )
+        self.assertEqual(
+            self.whats({"shell": "python", "run": 'exec "$GITHUB_ACTION_PATH/x"'}),
+            ["shell is 'python'; it must be one of bash, sh", "x is not a file"],
+        )
+
     def test_single_quotes_are_refused(self) -> None:
         # Inside single quotes the shell does not expand the variable, so the
         # step would run no file at all, whatever the lint checked.
@@ -95,8 +166,9 @@ class Steps(unittest.TestCase):
             self.whats({"shell": "sh", "run": 'echo "x=1" >> "$GITHUB_OUTPUT"'}),
             [
                 (
-                    'run must be exactly "$GITHUB_ACTION_PATH/<script>", double-quoted,'
-                    " with no arguments"
+                    'run must be exactly "$GITHUB_ACTION_PATH/<script>" or'
+                    ' exec "$GITHUB_ACTION_PATH/<script>", double-quoted, with no'
+                    " arguments"
                 )
             ],
         )

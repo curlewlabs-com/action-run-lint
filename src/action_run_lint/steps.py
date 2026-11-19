@@ -1,8 +1,14 @@
 """Judge one parsed composite action: is every `run:` step a call of one script?
 
-The one accepted form, for a step whose `shell:` is `bash` or `sh`:
+The accepted form, for a step whose `shell:` is `bash` or `sh`, and its `exec`
+twin, the same call with `exec ` and one space in front:
 
     run: '"$GITHUB_ACTION_PATH/path/to/script"'
+    run: 'exec "$GITHUB_ACTION_PATH/path/to/script"'
+
+The twin exists because the runner cancels a step by signalling the shell it
+started, and only `exec` makes the script that process; the plain call leaves
+the shell waiting on it, so the script never sees the signal.
 
 `$GITHUB_ACTION_PATH` may also be written `${GITHUB_ACTION_PATH}`. The body is
 matched as written, with nothing around the call but the one newline a YAML
@@ -34,7 +40,7 @@ from typing import Any, TypeGuard
 SHELLS = ("bash", "sh")
 SEGMENT = r"[A-Za-z0-9._-]+"
 CALL = re.compile(
-    rf""""\$(?:GITHUB_ACTION_PATH|\{{GITHUB_ACTION_PATH\}})/(?P<path>{SEGMENT}(?:/{SEGMENT})*)"\n?"""
+    rf"""(?:exec )?"\$(?:GITHUB_ACTION_PATH|\{{GITHUB_ACTION_PATH\}})/(?P<path>{SEGMENT}(?:/{SEGMENT})*)"\n?"""
 )
 
 
@@ -72,8 +78,8 @@ def _judge_run(root: Path, action_dir: Path, step: Mapping[str, object]) -> list
             )
         else:
             problems.append(
-                'run must be exactly "$GITHUB_ACTION_PATH/<script>", double-quoted,'
-                " with no arguments"
+                'run must be exactly "$GITHUB_ACTION_PATH/<script>" or'
+                ' exec "$GITHUB_ACTION_PATH/<script>", double-quoted, with no arguments'
             )
         return problems
     rel = match.group("path")

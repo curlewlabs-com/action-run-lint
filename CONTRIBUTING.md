@@ -29,8 +29,9 @@ repository shares (ruff, shellcheck, actionlint and others) through the
 - **Tests ship with the change.** A bug fix or a feature includes a test in the
   same pull request. A test that guards a failure mode says which one.
 - **Fail closed.** A step the lint cannot read is a finding, with the reason.
-- **One accepted form.** An option is added only for a user who cannot use the
-  lint without it.
+- **One accepted call.** The plain call and its `exec` twin, which a script
+  needs to receive the runner's cancel signal, are the only forms. A new form,
+  like an option, is added only for a user who cannot use the lint without it.
 - **Read the parsed document.** Actions are read through `yq`, never by a text
   pattern over the source.
 - **Standard library only at runtime.** `git` and `yq` are the only other
