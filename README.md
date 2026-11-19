@@ -65,7 +65,7 @@ As a command, from inside a repository, with `git` and
 macOS runner images ship both):
 
 ```sh
-pip install git+https://github.com/curlewlabs-com/action-run-lint@v0.1.2
+pip install git+https://github.com/curlewlabs-com/action-run-lint@v0.2.0
 action-run-lint                  # every tracked action.yml and action.yaml
 action-run-lint save/action.yml  # just this one
 ```
